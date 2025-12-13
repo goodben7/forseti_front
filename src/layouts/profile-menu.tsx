@@ -33,7 +33,7 @@ export default function ProfileMenu({
           />
           {!!username && (
             <span className="username hidden text-gray-200 dark:text-gray-700 md:inline-flex">
-              Hi, Andry
+              Bonjour, Andry
             </span>
           )}
         </button>
@@ -66,20 +66,7 @@ function ProfileMenuPopover({ children }: React.PropsWithChildren<{}>) {
   );
 }
 
-const menuItems = [
-  {
-    name: "My Profile",
-    href: routes.profile,
-  },
-  {
-    name: "Account Settings",
-    href: routes.forms.profileSettings,
-  },
-  {
-    name: "Activity Log",
-    href: "#",
-  },
-];
+
 
 function DropdownMenu() {
   return (
@@ -99,24 +86,14 @@ function DropdownMenu() {
           <Text className="text-gray-600">flores@doe.io</Text>
         </div>
       </div>
-      <div className="grid px-3.5 py-3.5 font-medium text-gray-700">
-        {menuItems.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            className="group my-0.5 flex items-center rounded-md px-2.5 py-2 hover:bg-gray-100 focus:outline-none hover:dark:bg-gray-50/50"
-          >
-            {item.name}
-          </Link>
-        ))}
-      </div>
+
       <div className="border-t border-gray-300 px-6 pb-6 pt-5">
         <Button
           className="h-auto w-full justify-start p-0 font-medium text-gray-700 outline-none focus-within:text-gray-600 hover:text-gray-900 focus-visible:ring-0"
           variant="text"
           onClick={() => signOut()}
         >
-          Sign Out
+          Se déconnecter
         </Button>
       </div>
     </div>

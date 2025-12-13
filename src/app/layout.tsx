@@ -11,9 +11,10 @@ import AuthProvider from '@/app/api/auth/[...nextauth]/auth-provider';
 
 import "./globals.css";
 
+import { metaObject } from "@/config/site.config";
+
 export const metadata: Metadata = {
-  title: "App Name",
-  description: "Write your app description",
+  ...metaObject(),
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

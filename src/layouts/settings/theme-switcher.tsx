@@ -40,7 +40,7 @@ export default function ThemeSwitcher() {
   }, [theme, colorPresetName]);
 
   return (
-    <DrawerBlock title="Appearance">
+    <DrawerBlock title="Apparence">
       <RadioGroup
         value={theme ?? siteConfig.mode}
         setValue={(selectedTheme: any) => {
@@ -57,12 +57,12 @@ export default function ThemeSwitcher() {
           >
             <span className="radio-active mb-3 inline-flex rounded-lg ring-offset-4 ring-offset-background dark:ring-offset-gray-100">
               {item === 'light' ? (
-                <LightMode aria-label="Light Mode" className="h-full w-full" />
+                <LightMode aria-label="Mode Clair" className="h-full w-full" />
               ) : (
-                <DarkMode aria-label="Dark Mode" className="h-full w-full" />
+                <DarkMode aria-label="Mode Sombre" className="h-full w-full" />
               )}
             </span>
-            <span className="inline-block w-full text-center">{item}</span>
+            <span className="inline-block w-full text-center">{item === 'light' ? 'Clair' : 'Sombre'}</span>
           </RadioBox>
         ))}
       </RadioGroup>

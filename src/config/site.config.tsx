@@ -10,13 +10,13 @@ enum MODE {
 }
 
 export const siteConfig = {
-  title: "Isomorphic - React Typescript Admin Dashboard Template",
-  description: `Isomorphic the ultimate React TypeScript Admin Template. Streamline your admin dashboard development with our feature-rich, responsive, and highly customizable solution. Boost productivity and create stunning admin interfaces effortlessly.`,
+  title: "Forseti - Plateforme de gestion",
+  description: "Forseti, la plateforme de gestion administrative centralisée. Simplifiez vos processus et gagnez en efficacité.",
   logo: logoImg,
-  icon: logoIconImg,
+  // icon: logoIconImg,
   mode: MODE.LIGHT,
   layout: LAYOUT_OPTIONS.HYDROGEN,
-  // TODO: favicon
+  icon: '/favicon.ico',
 };
 
 export const metaObject = (
@@ -27,6 +27,9 @@ export const metaObject = (
   return {
     title: title ? `${title} - Isomorphic Furyroad` : siteConfig.title,
     description,
+    icons: {
+      icon: siteConfig.icon,
+    },
     openGraph: openGraph ?? {
       title: title ? `${title} - Isomorphic Furyroad` : title,
       description,

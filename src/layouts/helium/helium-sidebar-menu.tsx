@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { Title, Collapse } from 'rizzui';
 import cn from '@core/utils/class-names';
 import { PiCaretDownBold } from 'react-icons/pi';
-import { menuItems } from '@/layouts/helium/helium-menu-items';
+import { menuItems, MenuItem } from '@/layouts/helium/helium-menu-items';
 import StatusBadge from '@core/components/get-status-badge';
 
 export function HeliumSidebarMenu() {
@@ -12,7 +12,7 @@ export function HeliumSidebarMenu() {
 
   return (
     <div className="mt-4 pb-3 3xl:mt-6">
-      {menuItems.map((item, index) => {
+      {menuItems.map((item: MenuItem, index) => {
         const isActive = pathname === (item?.href as string);
         const pathnameExistInDropdowns: any = item?.dropdownItems?.filter(
           (dropdownItem) => dropdownItem.href === pathname
@@ -33,7 +33,7 @@ export function HeliumSidebarMenu() {
                           'group relative mx-3 flex cursor-pointer items-center justify-between rounded-md px-3 py-2 font-medium lg:my-1 2xl:mx-5 2xl:my-2',
                           isDropdownOpen
                             ? 'before:top-2/5 text-white before:absolute before:-start-3 before:block before:h-4/5 before:w-1 before:rounded-ee-md before:rounded-se-md before:bg-white dark:text-primary dark:before:bg-primary 2xl:before:-start-5'
-                            : 'text-gray-300/70 transition-colors duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-700'
+                            : 'text-gray-300/70 transition-colors duration-200 hover:bg-gray-100/10 hover:text-white dark:text-gray-500 dark:hover:text-gray-700'
                         )}
                       >
                         <span className="flex items-center">
@@ -43,7 +43,7 @@ export function HeliumSidebarMenu() {
                                 'me-2 inline-flex h-5 w-5 items-center justify-center rounded-md [&>svg]:h-[20px] [&>svg]:w-[20px]',
                                 isDropdownOpen
                                   ? 'text-white dark:text-primary'
-                                  : 'text-gray-300/70 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-500'
+                                  : 'text-gray-300/70 group-hover:text-white dark:text-gray-500 dark:group-hover:text-gray-500'
                               )}
                             >
                               {item?.icon}
@@ -68,13 +68,13 @@ export function HeliumSidebarMenu() {
 
                       return (
                         <Link
-                          href={dropdownItem?.href}
+                          href={dropdownItem?.href ?? '#'}
                           key={dropdownItem?.name + index}
                           className={cn(
                             'group mx-3.5 mb-0.5 flex items-center justify-between rounded-md px-2.5 py-2 font-medium capitalize last-of-type:mb-1 lg:last-of-type:mb-2 2xl:mx-5 2xl:px-3.5',
                             isChildActive
-                              ? 'text-gray-200 dark:text-gray-700'
-                              : 'text-gray-400 transition-colors duration-200 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500'
+                              ? 'text-white dark:text-gray-700'
+                              : 'text-gray-400 transition-colors duration-200 hover:bg-gray-100/10 hover:text-white dark:text-gray-500'
                           )}
                         >
                           <div className="flex items-center truncate">
@@ -104,7 +104,7 @@ export function HeliumSidebarMenu() {
                       'group relative mx-3 my-0.5 flex items-center justify-between rounded-md px-3 py-2 font-medium capitalize lg:my-1 2xl:mx-5 2xl:my-2',
                       isActive
                         ? 'before:top-2/5 text-white before:absolute before:-start-3 before:block before:h-4/5 before:w-1 before:rounded-ee-md before:rounded-se-md before:bg-white dark:text-gray-900 2xl:before:-start-5'
-                        : 'text-gray-300/70 transition-colors duration-200 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-700'
+                        : 'text-gray-300/70 transition-colors duration-200 hover:bg-gray-100/10 hover:text-white dark:text-gray-500 dark:hover:text-gray-700'
                     )}
                   >
                     <div className="flex items-center truncate">
@@ -114,7 +114,7 @@ export function HeliumSidebarMenu() {
                             'me-2 inline-flex h-5 w-5 items-center justify-center rounded-md transition-colors duration-200 [&>svg]:h-[20px] [&>svg]:w-[20px]',
                             isActive
                               ? 'text-white dark:text-gray-900'
-                              : 'text-gray-300/70 group-hover:text-gray-500 dark:text-gray-500'
+                              : 'text-gray-300/70 group-hover:text-white dark:text-gray-500'
                           )}
                         >
                           {item?.icon}
