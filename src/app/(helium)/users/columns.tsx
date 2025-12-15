@@ -8,6 +8,7 @@ import PencilIcon from '@core/components/icons/pencil';
 import DeletePopover from '@core/components/delete-popover';
 
 export interface UserDataType {
+    iri: string;
     id: string;
     displayName: string;
     email: string;
@@ -28,10 +29,8 @@ export const userListColumns = [
         size: 80,
         header: 'ID',
         cell: ({ row }) => {
-            const iri = row.original.id;
-            const shortId = iri.split('/').pop() ?? iri;
             return (
-                <Text className="text-sm font-medium">{shortId}</Text>
+                <Text className="text-sm font-medium">{row.original.id}</Text>
             );
         },
     }),
@@ -108,26 +107,37 @@ export const userListColumns = [
         id: 'actions',
         size: 140,
         header: 'Actions',
-        cell: ({ row }) => (
-            <div className="flex items-center justify-end gap-3 pe-4">
-                <Tooltip
-                    size="sm"
-                    content="Modifier l’utilisateur"
-                    placement="top"
-                    color="invert"
-                >
-                    <ActionIcon size="sm" variant="outline">
-                        <PencilIcon className="h-4 w-4" />
-                    </ActionIcon>
-                </Tooltip>
-                <DeletePopover
-                    title="Supprimer l’utilisateur"
-                    description={`Voulez-vous vraiment supprimer l’utilisateur #${
-                        row.original.id.split('/').pop() ?? row.original.id
-                    } ?`}
-                    onDelete={() => {}}
-                />
-            </div>
-        ),
+        cell: ({
+            row,
+            table: {
+                options: { meta },
+            },
+        }) => {
+            const handleEdit = () => {
+                if (meta && typeof (meta as any).handleEditUser === 'function') {
+                    (meta as any).handleEditUser(row.original);
+                }
+            };
+
+            return (
+                <div className="flex items-center justify-end gap-3 pe-4">
+                    <Tooltip
+                        size="sm"
+                        content="Modifier l’utilisateur"
+                        placement="top"
+                        color="invert"
+                    >
+                        <ActionIcon size="sm" variant="outline" onClick={handleEdit}>
+                            <PencilIcon className="h-4 w-4" />
+                        </ActionIcon>
+                    </Tooltip>
+                    <DeletePopover
+                        title="Supprimer l’utilisateur"
+                        description={`Voulez-vous vraiment supprimer l’utilisateur #${row.original.id} ?`}
+                        onDelete={() => {}}
+                    />
+                </div>
+            );
+        },
     }),
 ];
