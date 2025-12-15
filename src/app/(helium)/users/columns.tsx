@@ -1,9 +1,11 @@
 'use client';
 
 import { createColumnHelper } from '@tanstack/react-table';
-import { Text, Badge } from 'rizzui';
+import { Text, Badge, ActionIcon, Tooltip } from 'rizzui';
 import DateCell from '@core/ui/date-cell';
-import { PiCheckCircle, PiXCircle, PiLockKey, PiTrash } from 'react-icons/pi';
+import { PiLockKey } from 'react-icons/pi';
+import PencilIcon from '@core/components/icons/pencil';
+import DeletePopover from '@core/components/delete-popover';
 
 export interface UserDataType {
     id: string;
@@ -25,9 +27,13 @@ export const userListColumns = [
         id: 'id',
         size: 80,
         header: 'ID',
-        cell: ({ row }) => (
-            <Text className="text-sm font-medium">#{row.original.id}</Text>
-        ),
+        cell: ({ row }) => {
+            const iri = row.original.id;
+            const shortId = iri.split('/').pop() ?? iri;
+            return (
+                <Text className="text-sm font-medium">{shortId}</Text>
+            );
+        },
     }),
     columnHelper.accessor('displayName', {
         id: 'displayName',
@@ -35,7 +41,7 @@ export const userListColumns = [
         header: 'Nom',
         cell: ({ row }) => (
             <Text className="text-sm font-semibold text-gray-900 dark:text-gray-700">
-                {row.original.displayName}
+                {row.original.displayName || 'N/A'}
             </Text>
         ),
     }),
@@ -45,58 +51,28 @@ export const userListColumns = [
         header: 'Email',
         cell: ({ row }) => (
             <Text className="text-sm text-gray-600">
-                {row.original.email}
+                {row.original.email || 'N/A'}
             </Text>
         ),
     }),
-    columnHelper.accessor('phone', {
-        id: 'phone',
-        size: 180,
-        header: 'Téléphone',
-        cell: ({ row }) => (
-            <Text className="text-sm text-gray-600">
-                {row.original.phone}
-            </Text>
-        ),
-    }),
-    columnHelper.accessor('personType', {
-        id: 'personType',
+    columnHelper.accessor('profile', {
+        id: 'profile',
         size: 150,
-        header: 'Type',
+        header: 'Profil',
         cell: ({ row }) => (
             <Badge
                 variant="flat"
                 color={
-                    row.original.personType === 'Manager'
-                        ? 'info'
-                        : row.original.personType === 'Consultant'
-                            ? 'warning'
-                            : 'secondary'
+                    row.original.profile === 'Administrateur'
+                        ? 'danger'
+                        : row.original.profile === 'Gestionnaire'
+                            ? 'success'
+                            : 'primary'
                 }
                 className="font-medium"
             >
-                {row.original.personType}
+                {row.original.profile || 'N/A'}
             </Badge>
-        ),
-    }),
-    columnHelper.accessor('isConfirmed', {
-        id: 'isConfirmed',
-        size: 120,
-        header: 'Confirmé',
-        cell: ({ row }) => (
-            <div className="flex items-center gap-2">
-                {row.original.isConfirmed ? (
-                    <>
-                        <PiCheckCircle className="h-5 w-5 text-green-600" />
-                        <Text className="text-sm">Oui</Text>
-                    </>
-                ) : (
-                    <>
-                        <PiXCircle className="h-5 w-5 text-red-600" />
-                        <Text className="text-sm">Non</Text>
-                    </>
-                )}
-            </div>
         ),
     }),
     columnHelper.accessor('locked', {
@@ -116,47 +92,42 @@ export const userListColumns = [
             </div>
         ),
     }),
-    columnHelper.accessor('deleted', {
-        id: 'deleted',
-        size: 120,
-        header: 'Supprimé',
-        cell: ({ row }) => (
-            <div className="flex items-center gap-2">
-                {row.original.deleted ? (
-                    <>
-                        <PiTrash className="h-5 w-5 text-red-600" />
-                        <Text className="text-sm">Oui</Text>
-                    </>
-                ) : (
-                    <Text className="text-sm text-gray-500">Non</Text>
-                )}
-            </div>
-        ),
-    }),
     columnHelper.accessor('createdAt', {
         id: 'createdAt',
         size: 180,
         header: 'Date de création',
-        cell: ({ row }) => <DateCell date={new Date(row.original.createdAt)} />,
-    }),
-    columnHelper.accessor('profile', {
-        id: 'profile',
-        size: 150,
-        header: 'Profil',
         cell: ({ row }) => (
-            <Badge
-                variant="flat"
-                color={
-                    row.original.profile === 'Administrateur'
-                        ? 'danger'
-                        : row.original.profile === 'Gestionnaire'
-                            ? 'success'
-                            : 'primary'
-                }
-                className="font-medium"
-            >
-                {row.original.profile}
-            </Badge>
+            <DateCell
+                date={new Date(row.original.createdAt)}
+                dateFormat="DD/MM/YYYY"
+                timeFormat="HH:mm"
+            />
+        ),
+    }),
+    columnHelper.display({
+        id: 'actions',
+        size: 140,
+        header: 'Actions',
+        cell: ({ row }) => (
+            <div className="flex items-center justify-end gap-3 pe-4">
+                <Tooltip
+                    size="sm"
+                    content="Modifier l’utilisateur"
+                    placement="top"
+                    color="invert"
+                >
+                    <ActionIcon size="sm" variant="outline">
+                        <PencilIcon className="h-4 w-4" />
+                    </ActionIcon>
+                </Tooltip>
+                <DeletePopover
+                    title="Supprimer l’utilisateur"
+                    description={`Voulez-vous vraiment supprimer l’utilisateur #${
+                        row.original.id.split('/').pop() ?? row.original.id
+                    } ?`}
+                    onDelete={() => {}}
+                />
+            </div>
         ),
     }),
 ];

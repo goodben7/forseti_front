@@ -23,6 +23,7 @@ export const authOptions: NextAuthOptions = {
           id: token.id as string,
           email: token.email as string,
           name: token.name as string,
+          accessToken: token.accessToken as string,
         },
       };
     },
