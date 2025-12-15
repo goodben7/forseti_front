@@ -8,6 +8,8 @@ import GlobalModal from "@/app/shared/modal-views/container";
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/auth-options';
 import AuthProvider from '@/app/api/auth/[...nextauth]/auth-provider';
+import { GraphQLProvider } from '@/lib/graphql-provider';
+import { Toaster } from 'react-hot-toast';
 
 import "./globals.css";
 
@@ -30,15 +32,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         className={cn(inter.variable, lexendDeca.variable, "font-inter")}
       >
         <AuthProvider session={session}>
-          <ThemeProvider>
-            <NextProgress />
-            <JotaiProvider>
-              {children}
-              <GlobalDrawer />
-              <GlobalModal />
-            </JotaiProvider>
-          </ThemeProvider>
+          <GraphQLProvider>
+            <ThemeProvider>
+              <NextProgress />
+              <JotaiProvider>
+                {children}
+                <GlobalDrawer />
+                <GlobalModal />
+              </JotaiProvider>
+            </ThemeProvider>
+          </GraphQLProvider>
         </AuthProvider>
+        <Toaster position="top-left" />
       </body>
     </html>
   );

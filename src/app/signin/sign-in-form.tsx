@@ -9,22 +9,42 @@ import { Checkbox, Password, Button, Input, Text } from 'rizzui';
 import { Form } from '@core/ui/form';
 import { routes } from '@/config/routes';
 import { loginSchema, LoginSchema } from '@/validators/login.schema';
+import toast from 'react-hot-toast';
 
 const initialValues: LoginSchema = {
-  email: 'admin@admin.com',
-  password: 'admin',
+  email: '',
+  password: '',
   rememberMe: true,
 };
 
 export default function SignInForm() {
-  //TODO: why we need to reset it here
   const [reset, setReset] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit: SubmitHandler<LoginSchema> = (data) => {
-    console.log(data);
-    signIn('credentials', {
-      ...data,
-    });
+  const onSubmit: SubmitHandler<LoginSchema> = async (data) => {
+    setIsLoading(true);
+    try {
+      const result = await signIn('credentials', {
+        ...data,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        // Show specific error message from API or generic message
+        const errorMessage = result.error === 'CredentialsSignin'
+          ? 'Identifiants invalides. Vérifiez votre email et mot de passe.'
+          : result.error;
+        toast.error(errorMessage);
+      } else if (result?.ok) {
+        toast.success('Connexion réussie !');
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Une erreur est survenue. Veuillez réessayer.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -71,9 +91,15 @@ export default function SignInForm() {
                 Mot de passe oublié ?
               </Link>
             </div>
-            <Button className="w-full bg-[#D4AF37] hover:bg-[#b8952b] text-white font-lexend" type="submit" size="lg">
-              <span>Se connecter</span>{' '}
-              <PiArrowRightBold className="ms-2 mt-0.5 h-5 w-5" />
+            <Button
+              className="w-full bg-[#D4AF37] hover:bg-[#b8952b] text-white font-lexend"
+              type="submit"
+              size="lg"
+              isLoading={isLoading}
+              disabled={isLoading}
+            >
+              <span>{isLoading ? 'Connexion en cours...' : 'Se connecter'}</span>{' '}
+              {!isLoading && <PiArrowRightBold className="ms-2 mt-0.5 h-5 w-5" />}
             </Button>
           </div>
         )}

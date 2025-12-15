@@ -39,6 +39,7 @@
     "@tailwindcss/container-queries": "^0.1.1",
     "@tanstack/react-table": "^8.20.5",
     "@uploadthing/react": "^7.0.3",
+    "@urql/exchange-auth": "^3.0.0",
     "clsx": "^2.1.1",
     "core": "workspace:*",
     "date-arithmetic": "^4.1.0",
@@ -48,6 +49,7 @@
     "framer-motion": "^11.11.4",
     "fs-extra": "^11.2.0",
     "glob": "^11.0.0",
+    "graphql": "^16.12.0",
     "jotai": "2.10.0",
     "lodash": "^4.17.21",
     "next": "14.2.15",
@@ -92,6 +94,7 @@
     "tailwind-merge": "^2.5.3",
     "typescript": "5.6.3",
     "uploadthing": "^7.1.0",
+    "urql": "^5.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
