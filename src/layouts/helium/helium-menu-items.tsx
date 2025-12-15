@@ -237,7 +237,7 @@ export const menuItems: MenuItem[] = [
     dropdownItems: [
       {
         name: 'Liste des utilisateurs',
-        href: '#',
+        href: routes.users.list,
       },
       {
         name: 'Rôles & permissions',

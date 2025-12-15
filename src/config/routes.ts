@@ -115,6 +115,9 @@ export const routes = {
   notFound: "/not-found",
   maintenance: "/maintenance",
   blank: "/blank",
+  users: {
+    list: "/users",
+  },
   auth: {
     signUp1: "/auth/sign-up-1",
     signUp2: "/auth/sign-up-2",
