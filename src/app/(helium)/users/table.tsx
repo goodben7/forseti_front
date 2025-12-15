@@ -5,8 +5,8 @@ import Table from '@core/components/table';
 import { useTanStackTable } from '@core/components/table/custom/use-TanStack-Table';
 import { userListColumns, type UserDataType } from './columns';
 import TablePagination from '@core/components/table/pagination';
-import { Input, Button, Select, Title, ActionIcon, Text, Badge, type ModalSize } from 'rizzui';
-import { PiMagnifyingGlassBold, PiFunnel, PiXBold } from 'react-icons/pi';
+import { Input, Button, Select, Title, ActionIcon, Text, Badge, Tooltip, type ModalSize } from 'rizzui';
+import { PiMagnifyingGlassBold, PiFunnel, PiXBold, PiKeyBold, PiLockKey } from 'react-icons/pi';
 import { FilterDrawerView } from '@core/components/controlled-table/table-filter';
 import ToggleColumns from '@core/components/table-utils/toggle-columns';
 import { graphqlClient } from '@/lib/graphql-client';
@@ -67,6 +67,27 @@ const UPDATE_USER_MUTATION = `
                 phone
                 displayName
                 updatedAt
+            }
+            clientMutationId
+        }
+    }
+`;
+
+const DELETE_USER_MUTATION = `
+    mutation DeleteUser($input: deleteUserInput!) {
+        deleteUser(input: $input) {
+            clientMutationId
+        }
+    }
+`;
+
+const CHANGE_PASSWORD_MUTATION = `
+    mutation ChangePassword($input: changePasswordUserInput!) {
+        changePasswordUser(input: $input) {
+            user {
+                id
+                email
+                displayName
             }
             clientMutationId
         }
@@ -169,6 +190,7 @@ function UserDetailsView({ user }: UserDetailsViewProps) {
     }, [user.iri, user.createdAt]);
 
     const currentUser = details ?? user;
+    const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
     const createdAtDate = new Date(currentUser.createdAt);
     const createdAtDisplay = createdAtDate.toLocaleString('fr-FR', {
@@ -209,6 +231,41 @@ function UserDetailsView({ user }: UserDetailsViewProps) {
                     </div>
                 )}
                 <div className="space-y-6">
+                    <div className="flex items-center justify-end gap-2">
+                        <Tooltip
+                            size="sm"
+                            content="Modifier le mot de passe"
+                            placement="top"
+                            color="invert"
+                        >
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setIsChangePasswordOpen(true)}
+                            >
+                                <PiKeyBold className="h-4 w-4" />
+                            </Button>
+                        </Tooltip>
+                        <Tooltip
+                            size="sm"
+                            content={
+                                currentUser.locked
+                                    ? 'Déverrouiller le compte'
+                                    : 'Verrouiller le compte'
+                            }
+                            placement="top"
+                            color="invert"
+                        >
+                            <Button size="sm" variant="outline">
+                                <PiLockKey className="h-4 w-4" />
+                            </Button>
+                        </Tooltip>
+                    </div>
+                    <ChangePasswordPanel
+                        isOpen={isChangePasswordOpen}
+                        onClose={() => setIsChangePasswordOpen(false)}
+                        user={currentUser}
+                    />
                     <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50/60 p-4 md:p-5">
                         <Text className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
                             Informations générales
@@ -322,6 +379,140 @@ function UserDetailsView({ user }: UserDetailsViewProps) {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+type ChangePasswordPanelProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    user: UserDataType;
+};
+
+function ChangePasswordPanel({ isOpen, onClose, user }: ChangePasswordPanelProps) {
+    const [actualPassword, setActualPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError(null);
+
+        if (!actualPassword || !newPassword || !confirmPassword) {
+            setError('Tous les champs sont obligatoires.');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setError('Les mots de passe ne correspondent pas.');
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+
+            const result = await graphqlClient
+                .mutation(CHANGE_PASSWORD_MUTATION, {
+                    input: {
+                        id: user.iri,
+                        actualPassword,
+                        newPassword,
+                    },
+                })
+                .toPromise();
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            toast.success('Mot de passe mis à jour avec succès.');
+            setActualPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            onClose();
+        } catch (error: any) {
+            console.error('Erreur lors du changement de mot de passe', error);
+            const message =
+                error?.message ||
+                'Impossible de changer le mot de passe pour cet utilisateur.';
+            setError(message);
+            toast.error(message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!isOpen) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 md:p-5">
+            <div className="flex items-center justify-between">
+                <Title as="h4" className="text-sm font-semibold">
+                    Modifier le mot de passe
+                </Title>
+                <ActionIcon
+                    size="sm"
+                    variant="text"
+                    onClick={onClose}
+                    className="p-0 text-gray-500 hover:!text-gray-900"
+                >
+                    <PiXBold className="h-5 w-5" />
+                </ActionIcon>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <Text className="text-xs text-gray-500">
+                    Saisissez le mot de passe actuel et le nouveau mot de passe pour cet
+                    utilisateur.
+                </Text>
+                <div className="space-y-3">
+                    <Input
+                        label="Mot de passe actuel"
+                        labelClassName="font-medium text-gray-1000 dark:text-white"
+                        value={actualPassword}
+                        onChange={(e) => setActualPassword(e.target.value)}
+                        placeholder="Mot de passe actuel"
+                        required
+                    />
+                    <Input
+                        label="Nouveau mot de passe"
+                        labelClassName="font-medium text-gray-1000 dark:text-white"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Nouveau mot de passe"
+                        required
+                    />
+                    <Input
+                        label="Confirmer le nouveau mot de passe"
+                        labelClassName="font-medium text-gray-1000 dark:text-white"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirmez le nouveau mot de passe"
+                        required
+                    />
+                </div>
+                {error && (
+                    <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {error}
+                    </div>
+                )}
+                <div className="flex justify-end gap-3 pt-1">
+                    <Button variant="outline" type="button" onClick={onClose}>
+                        Annuler
+                    </Button>
+                    <Button
+                        type="submit"
+                        className="bg-[#D4AF37] hover:bg-[#b8952b]"
+                        isLoading={isSubmitting}
+                        disabled={isSubmitting}
+                    >
+                        Enregistrer
+                    </Button>
+                </div>
+            </form>
         </div>
     );
 }
@@ -612,7 +803,43 @@ export default function UserListTable() {
                             />
                         ),
                         size: 'lg' as ModalSize,
-                    });
+                        });
+                },
+                handleDeleteUser: async (user: UserDataType) => {
+                    try {
+                        setError(null);
+
+                        const result = await graphqlClient
+                            .mutation(DELETE_USER_MUTATION, {
+                                input: {
+                                    id: user.iri,
+                                    clientMutationId: '',
+                                },
+                            })
+                            .toPromise();
+
+                        if (result.error) {
+                            throw result.error;
+                        }
+
+                        setRawUsers((prev) =>
+                            prev.map((u) =>
+                                u.iri === user.iri ? { ...u, deleted: true } : u
+                            )
+                        );
+
+                        toast.success('Utilisateur supprimé avec succès.');
+                    } catch (error: any) {
+                        console.error(
+                            'Erreur lors de la suppression de l’utilisateur',
+                            error
+                        );
+                        const message =
+                            error?.message ||
+                            'Impossible de supprimer cet utilisateur.';
+                        setError(message);
+                        toast.error(message);
+                    }
                 },
             },
         },

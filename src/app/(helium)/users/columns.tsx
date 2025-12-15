@@ -5,6 +5,7 @@ import { Text, Badge, ActionIcon, Tooltip } from 'rizzui';
 import DateCell from '@core/ui/date-cell';
 import { PiLockKey, PiEye } from 'react-icons/pi';
 import PencilIcon from '@core/components/icons/pencil';
+import TrashIcon from '@core/components/icons/trash';
 import DeletePopover from '@core/components/delete-popover';
 
 export interface UserDataType {
@@ -125,6 +126,12 @@ export const userListColumns = [
                 }
             };
 
+            const handleDelete = () => {
+                if (meta && typeof (meta as any).handleDeleteUser === 'function') {
+                    (meta as any).handleDeleteUser(row.original);
+                }
+            };
+
             return (
                 <div className="flex items-center justify-end gap-3 pe-4">
                     <Tooltip
@@ -147,11 +154,29 @@ export const userListColumns = [
                             <PencilIcon className="h-4 w-4" />
                         </ActionIcon>
                     </Tooltip>
-                    <DeletePopover
-                        title="Supprimer l’utilisateur"
-                        description={`Voulez-vous vraiment supprimer l’utilisateur #${row.original.id} ?`}
-                        onDelete={() => {}}
-                    />
+                    {row.original.deleted ? (
+                        <Tooltip
+                            size="sm"
+                            content="Utilisateur déjà supprimé"
+                            placement="top"
+                            color="invert"
+                        >
+                            <ActionIcon
+                                size="sm"
+                                variant="outline"
+                                disabled
+                                className="cursor-not-allowed opacity-50"
+                            >
+                                <TrashIcon className="h-4 w-4" />
+                            </ActionIcon>
+                        </Tooltip>
+                    ) : (
+                        <DeletePopover
+                            title="Supprimer l’utilisateur"
+                            description={`Voulez-vous vraiment supprimer l’utilisateur #${row.original.id} ?`}
+                            onDelete={handleDelete}
+                        />
+                    )}
                 </div>
             );
         },
