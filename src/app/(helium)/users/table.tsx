@@ -5,7 +5,7 @@ import Table from '@core/components/table';
 import { useTanStackTable } from '@core/components/table/custom/use-TanStack-Table';
 import { userListColumns, type UserDataType } from './columns';
 import TablePagination from '@core/components/table/pagination';
-import { Input, Button, Select, Title, ActionIcon, Text, type ModalSize } from 'rizzui';
+import { Input, Button, Select, Title, ActionIcon, Text, Badge, type ModalSize } from 'rizzui';
 import { PiMagnifyingGlassBold, PiFunnel, PiXBold } from 'react-icons/pi';
 import { FilterDrawerView } from '@core/components/controlled-table/table-filter';
 import ToggleColumns from '@core/components/table-utils/toggle-columns';
@@ -39,18 +39,36 @@ const USERS_QUERY = `
     }
 `;
 
-const UPDATE_USER_MUTATION = `
-    mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
-        updateUser(id: $id, input: $input) {
+const USER_DETAILS_QUERY = `
+    query User($id: ID!) {
+        user(id: $id) {
             id
             email
             displayName
+            phone
+            personType
+            confirmed
             locked
             deleted
             createdAt
             profile {
                 label
             }
+        }
+    }
+`;
+
+const UPDATE_USER_MUTATION = `
+    mutation UpdateUser($input: updateUserInput!) {
+        updateUser(input: $input) {
+            user {
+                id
+                email
+                phone
+                displayName
+                updatedAt
+            }
+            clientMutationId
         }
     }
 `;
@@ -75,6 +93,239 @@ type UserEditFormProps = {
     onCancel: () => void;
 };
 
+type UserDetailsViewProps = {
+    user: UserDataType;
+};
+
+function UserDetailsView({ user }: UserDetailsViewProps) {
+    const { closeModal } = useModal();
+    const [details, setDetails] = useState<UserDataType | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [detailsError, setDetailsError] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        let isMounted = true;
+
+        async function fetchDetails() {
+            try {
+                setDetailsError(null);
+                setIsLoading(true);
+
+                const result = await graphqlClient
+                    .query(USER_DETAILS_QUERY, { id: user.iri })
+                    .toPromise();
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                const node = result.data?.user;
+
+                if (!node || !isMounted) {
+                    return;
+                }
+
+                const iri: string = node.id;
+                const parts = iri.split('/');
+                const lastPart = parts[parts.length - 1] || iri;
+                const displayId = lastPart;
+
+                const nextUser: UserDataType = {
+                    iri,
+                    id: displayId,
+                    displayName: node.displayName ?? '',
+                    email: node.email ?? '',
+                    phone: node.phone ?? '',
+                    personType: node.personType ?? '',
+                    isConfirmed: Boolean(node.confirmed),
+                    locked: Boolean(node.locked),
+                    deleted: Boolean(node.deleted),
+                    createdAt: node.createdAt ?? user.createdAt,
+                    profile: node.profile?.label ?? '',
+                };
+
+                setDetails(nextUser);
+            } catch (error: any) {
+                console.error(
+                    'Erreur lors du chargement du détail utilisateur',
+                    error
+                );
+                const message =
+                    error?.message ||
+                    'Impossible de charger le détail de cet utilisateur.';
+                setDetailsError(message);
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        fetchDetails();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user.iri, user.createdAt]);
+
+    const currentUser = details ?? user;
+
+    const createdAtDate = new Date(currentUser.createdAt);
+    const createdAtDisplay = createdAtDate.toLocaleString('fr-FR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+
+    return (
+        <div className="block">
+            <div className="flex items-center justify-between border-b border-gray-200 p-5 md:p-7">
+                <Title
+                    as="h3"
+                    className="font-lexend text-lg font-semibold md:text-xl"
+                >
+                    Détails de l’utilisateur
+                </Title>
+                <ActionIcon
+                    size="sm"
+                    variant="text"
+                    onClick={() => closeModal()}
+                    className="p-0 text-gray-500 hover:!text-gray-900"
+                >
+                    <PiXBold className="h-5 w-5" />
+                </ActionIcon>
+            </div>
+            <div className="space-y-5 px-5 pb-6 pt-5 md:px-7 md:pb-7 md:pt-6">
+                {isLoading && (
+                    <Text className="text-xs text-gray-500">
+                        Chargement des détails de l’utilisateur...
+                    </Text>
+                )}
+                {detailsError && (
+                    <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {detailsError}
+                    </div>
+                )}
+                <div className="space-y-6">
+                    <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50/60 p-4 md:p-5">
+                        <Text className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+                            Informations générales
+                        </Text>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-1 md:col-span-2">
+                                <Text className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+                                    Identifiant
+                                </Text>
+                                <Text className="truncate font-mono text-sm font-semibold text-gray-900">
+                                    {currentUser.id}
+                                </Text>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Nom complet
+                                </Text>
+                                <Text className="text-sm text-gray-900">
+                                    {currentUser.displayName || 'N/A'}
+                                </Text>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Email
+                                </Text>
+                                <Text className="text-sm text-gray-900">
+                                    {currentUser.email || 'N/A'}
+                                </Text>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Téléphone
+                                </Text>
+                                <Text className="text-sm text-gray-900">
+                                    {currentUser.phone || 'N/A'}
+                                </Text>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Profil
+                                </Text>
+                                <Text className="text-sm text-gray-900">
+                                    {currentUser.profile || 'N/A'}
+                                </Text>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Type de personne
+                                </Text>
+                                <Text className="text-sm text-gray-900">
+                                    {currentUser.personType || 'N/A'}
+                                </Text>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 rounded-lg border border-gray-100 bg-white p-4 md:p-5">
+                        <Text className="text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+                            Statut du compte
+                        </Text>
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Confirmé
+                                </Text>
+                                <Badge
+                                    size="sm"
+                                    rounded="pill"
+                                    color={currentUser.isConfirmed ? 'success' : 'warning'}
+                                    className="px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em]"
+                                >
+                                    {currentUser.isConfirmed ? 'Oui' : 'Non'}
+                                </Badge>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Verrouillé
+                                </Text>
+                                <Badge
+                                    size="sm"
+                                    rounded="pill"
+                                    color={currentUser.locked ? 'danger' : 'success'}
+                                    className="px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em]"
+                                >
+                                    {currentUser.locked ? 'Oui' : 'Non'}
+                                </Badge>
+                            </div>
+                            <div className="space-y-1">
+                                <Text className="text-xs font-medium text-gray-500">
+                                    Supprimé
+                                </Text>
+                                <Badge
+                                    size="sm"
+                                    rounded="pill"
+                                    color={currentUser.deleted ? 'danger' : 'success'}
+                                    className="px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em]"
+                                >
+                                    {currentUser.deleted ? 'Oui' : 'Non'}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Text className="text-xs font-medium text-gray-500">
+                            Date de création
+                        </Text>
+                        <Text className="text-sm text-gray-900">
+                            {createdAtDisplay}
+                        </Text>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function UserEditForm({ user, onSave, onCancel }: UserEditFormProps) {
     const [formData, setFormData] = useState<UserDataType>(user);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,6 +337,59 @@ function UserEditForm({ user, onSave, onCancel }: UserEditFormProps) {
             [field]: value,
         }));
     };
+
+    React.useEffect(() => {
+        let isMounted = true;
+
+        async function fetchDetailsForEdit() {
+            try {
+                const result = await graphqlClient
+                    .query(USER_DETAILS_QUERY, { id: user.iri })
+                    .toPromise();
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                const node = result.data?.user;
+
+                if (!node || !isMounted) {
+                    return;
+                }
+
+                const iri: string = node.id;
+                const parts = iri.split('/');
+                const lastPart = parts[parts.length - 1] || iri;
+                const displayId = lastPart;
+
+                const nextUser: UserDataType = {
+                    iri,
+                    id: displayId,
+                    displayName: node.displayName ?? '',
+                    email: node.email ?? '',
+                    phone: node.phone ?? '',
+                    personType: node.personType ?? '',
+                    isConfirmed: Boolean(node.confirmed),
+                    locked: Boolean(node.locked),
+                    deleted: Boolean(node.deleted),
+                    createdAt: node.createdAt ?? user.createdAt,
+                    profile: node.profile?.label ?? '',
+                };
+
+                setFormData(nextUser);
+            } catch (error) {
+            } finally {
+                if (!isMounted) {
+                }
+            }
+        }
+
+        fetchDetailsForEdit();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [user.iri, user.createdAt]);
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -141,7 +445,7 @@ function UserEditForm({ user, onSave, onCancel }: UserEditFormProps) {
                             Identifiant
                         </Text>
                         <Text className="truncate text-sm font-medium text-gray-900">
-                            {user.id}
+                            {formData.id}
                         </Text>
                     </div>
 
@@ -226,6 +530,12 @@ export default function UserListTable() {
             },
             enableColumnResizing: false,
             meta: {
+                handleViewUser: (user: UserDataType) => {
+                    openModal({
+                        view: <UserDetailsView user={user} />,
+                        size: 'lg' as ModalSize,
+                    });
+                },
                 handleEditUser: (user: UserDataType) => {
                     openModal({
                         view: (
@@ -237,11 +547,11 @@ export default function UserListTable() {
 
                                         const result = await graphqlClient
                                             .mutation(UPDATE_USER_MUTATION, {
-                                                id: updatedUser.iri,
                                                 input: {
+                                                    id: updatedUser.iri,
                                                     email: updatedUser.email,
-                                                    displayName: updatedUser.displayName,
                                                     phone: updatedUser.phone,
+                                                    displayName: updatedUser.displayName,
                                                 },
                                             })
                                             .toPromise();
@@ -250,7 +560,7 @@ export default function UserListTable() {
                                             throw result.error;
                                         }
 
-                                        const node = result.data?.updateUser;
+                                        const node = result.data?.updateUser?.user;
 
                                         const nextUser: UserDataType = node
                                             ? (() => {
@@ -266,17 +576,13 @@ export default function UserListTable() {
                                                       displayName:
                                                           node.displayName ?? '',
                                                       email: node.email ?? '',
-                                                      phone: updatedUser.phone,
+                                                      phone: node.phone ?? updatedUser.phone,
                                                       personType: updatedUser.personType,
                                                       isConfirmed: updatedUser.isConfirmed,
-                                                      locked: Boolean(node.locked),
-                                                      deleted: Boolean(node.deleted),
-                                                      createdAt:
-                                                          node.createdAt ??
-                                                          updatedUser.createdAt,
-                                                      profile:
-                                                          node.profile?.label ??
-                                                          updatedUser.profile,
+                                                      locked: updatedUser.locked,
+                                                      deleted: updatedUser.deleted,
+                                                      createdAt: updatedUser.createdAt,
+                                                      profile: updatedUser.profile,
                                                   };
                                               })()
                                             : updatedUser;

@@ -3,7 +3,7 @@
 import { createColumnHelper } from '@tanstack/react-table';
 import { Text, Badge, ActionIcon, Tooltip } from 'rizzui';
 import DateCell from '@core/ui/date-cell';
-import { PiLockKey } from 'react-icons/pi';
+import { PiLockKey, PiEye } from 'react-icons/pi';
 import PencilIcon from '@core/components/icons/pencil';
 import DeletePopover from '@core/components/delete-popover';
 
@@ -119,8 +119,24 @@ export const userListColumns = [
                 }
             };
 
+            const handleView = () => {
+                if (meta && typeof (meta as any).handleViewUser === 'function') {
+                    (meta as any).handleViewUser(row.original);
+                }
+            };
+
             return (
                 <div className="flex items-center justify-end gap-3 pe-4">
+                    <Tooltip
+                        size="sm"
+                        content="Voir les détails"
+                        placement="top"
+                        color="invert"
+                    >
+                        <ActionIcon size="sm" variant="outline" onClick={handleView}>
+                            <PiEye className="h-4 w-4" />
+                        </ActionIcon>
+                    </Tooltip>
                     <Tooltip
                         size="sm"
                         content="Modifier l’utilisateur"
