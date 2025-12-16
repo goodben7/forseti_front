@@ -94,13 +94,18 @@ const CHANGE_PASSWORD_MUTATION = `
     }
 `;
 
-const profileOptions = [
-    { label: 'Tous les profils', value: '' },
-    { label: 'Administrateur', value: 'Administrateur' },
-    { label: 'Gestionnaire', value: 'Gestionnaire' },
-    { label: 'Utilisateur', value: 'Utilisateur' },
-    { label: 'Consultant', value: 'Consultant' },
-];
+const TOGGLE_LOCK_MUTATION = `
+    mutation ToggleLock($input: toggleLockUserInput!) {
+        toggleLockUser(input: $input) {
+            user {
+                id
+                email
+                locked
+            }
+            clientMutationId
+        }
+    }
+`;
 
 const lockedOptions = [
     { label: 'Tous', value: 'all' },
@@ -116,13 +121,17 @@ type UserEditFormProps = {
 
 type UserDetailsViewProps = {
     user: UserDataType;
+    onUserUpdated?: (user: UserDataType) => void;
 };
 
-function UserDetailsView({ user }: UserDetailsViewProps) {
+function UserDetailsView({ user, onUserUpdated }: UserDetailsViewProps) {
     const { closeModal } = useModal();
     const [details, setDetails] = useState<UserDataType | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [detailsError, setDetailsError] = useState<string | null>(null);
+    const [isConfirmToggleOpen, setIsConfirmToggleOpen] = useState(false);
+    const [isToggling, setIsToggling] = useState(false);
+    const [toggleError, setToggleError] = useState<string | null>(null);
 
     React.useEffect(() => {
         let isMounted = true;
@@ -192,6 +201,64 @@ function UserDetailsView({ user }: UserDetailsViewProps) {
     const currentUser = details ?? user;
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
+    const handleConfirmToggleLock = async () => {
+        setToggleError(null);
+
+        try {
+            setIsToggling(true);
+
+            const result = await graphqlClient
+                .mutation(TOGGLE_LOCK_MUTATION, {
+                    input: {
+                        id: currentUser.iri,
+                    },
+                })
+                .toPromise();
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            const node = result.data?.toggleLockUser?.user;
+
+            const nextLocked =
+                typeof node?.locked === 'boolean'
+                    ? Boolean(node.locked)
+                    : !currentUser.locked;
+
+            const updatedUser: UserDataType = {
+                ...currentUser,
+                locked: nextLocked,
+            };
+
+            setDetails(updatedUser);
+
+            if (onUserUpdated) {
+                onUserUpdated(updatedUser);
+            }
+
+            toast.success(
+                nextLocked
+                    ? 'Compte verrouillé avec succès.'
+                    : 'Compte déverrouillé avec succès.'
+            );
+
+            setIsConfirmToggleOpen(false);
+        } catch (error: any) {
+            console.error(
+                "Erreur lors de la mise à jour de l'état de verrouillage",
+                error
+            );
+            const message =
+                error?.message ||
+                "Impossible de mettre à jour l'état de verrouillage de cet utilisateur.";
+            setToggleError(message);
+            toast.error(message);
+        } finally {
+            setIsToggling(false);
+        }
+    };
+
     const createdAtDate = new Date(currentUser.createdAt);
     const createdAtDisplay = createdAtDate.toLocaleString('fr-FR', {
         year: 'numeric',
@@ -256,11 +323,59 @@ function UserDetailsView({ user }: UserDetailsViewProps) {
                             placement="top"
                             color="invert"
                         >
-                            <Button size="sm" variant="outline">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    setIsConfirmToggleOpen(true);
+                                    setToggleError(null);
+                                }}
+                            >
                                 <PiLockKey className="h-4 w-4" />
                             </Button>
                         </Tooltip>
                     </div>
+                    {isConfirmToggleOpen && (
+                        <div className="mt-3 space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+                            <Text className="text-sm font-semibold text-gray-900">
+                                {currentUser.locked
+                                    ? 'Déverrouiller ce compte ?'
+                                    : 'Verrouiller ce compte ?'}
+                            </Text>
+                            <Text className="text-xs text-gray-600">
+                                {currentUser.locked
+                                    ? 'L’utilisateur pourra à nouveau se connecter.'
+                                    : "L’utilisateur ne pourra plus se connecter tant que le compte est verrouillé."}
+                            </Text>
+                            {toggleError && (
+                                <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                    {toggleError}
+                                </div>
+                            )}
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setIsConfirmToggleOpen(false);
+                                        setToggleError(null);
+                                    }}
+                                    disabled={isToggling}
+                                >
+                                    Annuler
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="bg-[#D4AF37] hover:bg-[#b8952b]"
+                                    onClick={handleConfirmToggleLock}
+                                    isLoading={isToggling}
+                                    disabled={isToggling}
+                                >
+                                    Confirmer
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     <ChangePasswordPanel
                         isOpen={isChangePasswordOpen}
                         onClose={() => setIsChangePasswordOpen(false)}
@@ -709,6 +824,24 @@ export default function UserListTable() {
     const [openFilters, setOpenFilters] = useState(false);
     const { openModal, closeModal } = useModal();
 
+    const profileOptions = React.useMemo(
+        () => {
+            const labels = Array.from(
+                new Set(
+                    rawUsers
+                        .map((user) => user.profile)
+                        .filter((profile): profile is string => Boolean(profile))
+                )
+            );
+
+            return [
+                { label: 'Tous les profils', value: '' },
+                ...labels.map((label) => ({ label, value: label })),
+            ];
+        },
+        [rawUsers]
+    );
+
     const { table, setData } = useTanStackTable<UserDataType>({
         tableData: rawUsers,
         columnConfig: userListColumns,
@@ -723,7 +856,18 @@ export default function UserListTable() {
             meta: {
                 handleViewUser: (user: UserDataType) => {
                     openModal({
-                        view: <UserDetailsView user={user} />,
+                        view: (
+                            <UserDetailsView
+                                user={user}
+                                onUserUpdated={(updatedUser) => {
+                                    setRawUsers((prev) =>
+                                        prev.map((u) =>
+                                            u.iri === updatedUser.iri ? updatedUser : u
+                                        )
+                                    );
+                                }}
+                            />
+                        ),
                         size: 'lg' as ModalSize,
                     });
                 },

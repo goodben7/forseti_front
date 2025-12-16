@@ -1,6 +1,7 @@
 import { Client, cacheExchange, fetchExchange } from 'urql';
 import { authExchange } from '@urql/exchange-auth';
 import https from 'https';
+import { routes } from '@/config/routes';
 
 // Custom fetch for development to handle self-signed certificates
 const customFetch = (url: RequestInfo | URL, options?: RequestInit) => {
@@ -84,9 +85,18 @@ export const createGraphQLClient = () => {
                         });
                     },
                     didAuthError(error) {
-                        return error.graphQLErrors.some(
+                        const hasAuthError = error.graphQLErrors.some(
                             (e) => e.extensions?.code === 'UNAUTHENTICATED'
                         );
+
+                        if (hasAuthError && typeof window !== 'undefined') {
+                            try {
+                                localStorage.removeItem('authToken');
+                            } catch (e) {}
+                            window.location.href = routes.signIn;
+                        }
+
+                        return hasAuthError;
                     },
                     async refreshAuth() {
                         // Optional: implement token refresh logic here
