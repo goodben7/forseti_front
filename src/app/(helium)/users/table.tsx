@@ -5,7 +5,7 @@ import Table from '@core/components/table';
 import { useTanStackTable } from '@core/components/table/custom/use-TanStack-Table';
 import { userListColumns, type UserDataType } from './columns';
 import TablePagination from '@core/components/table/pagination';
-import { Input, Button, Select, Title, ActionIcon, Text, Badge, Tooltip, type ModalSize } from 'rizzui';
+import { Input, Password, Button, Select, Title, ActionIcon, Text, Badge, Tooltip, type ModalSize } from 'rizzui';
 import { PiMagnifyingGlassBold, PiFunnel, PiXBold, PiKeyBold, PiLockKey } from 'react-icons/pi';
 import { FilterDrawerView } from '@core/components/controlled-table/table-filter';
 import ToggleColumns from '@core/components/table-utils/toggle-columns';
@@ -107,6 +107,24 @@ const TOGGLE_LOCK_MUTATION = `
     }
 `;
 
+const CREATE_USER_MUTATION = `
+    mutation CreateUser($input: createUserInput!) {
+        createUser(input: $input) {
+            user {
+                id
+                email
+                phone
+                displayName
+                profile {
+                    id
+                }
+                createdAt
+            }
+            clientMutationId
+        }
+    }
+`;
+
 const lockedOptions = [
     { label: 'Tous', value: 'all' },
     { label: 'Verrouillé', value: 'locked' },
@@ -122,6 +140,11 @@ type UserEditFormProps = {
 type UserDetailsViewProps = {
     user: UserDataType;
     onUserUpdated?: (user: UserDataType) => void;
+};
+
+type CreateUserFormProps = {
+    onCreated: (user: UserDataType) => void;
+    onCancel: () => void;
 };
 
 function UserDetailsView({ user, onUserUpdated }: UserDetailsViewProps) {
@@ -498,6 +521,266 @@ function UserDetailsView({ user, onUserUpdated }: UserDetailsViewProps) {
     );
 }
 
+function CreateUserForm({ onCreated, onCancel }: CreateUserFormProps) {
+    const [email, setEmail] = useState('');
+    const [plainPassword, setPlainPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [phone, setPhone] = useState('');
+    const [displayName, setDisplayName] = useState('');
+    const [profile, setProfile] = useState('');
+    const [availableProfiles, setAvailableProfiles] = useState<
+        { label: string; value: string }[]
+    >([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    React.useEffect(() => {
+        async function fetchProfiles() {
+            try {
+                const result = await graphqlClient
+                    .query(
+                        `
+                            query Profiles($page: Int, $itemsPerPage: Int) {
+                                profiles(page: $page, itemsPerPage: $itemsPerPage) {
+                                    collection {
+                                        id
+                                        label
+                                    }
+                                    paginationInfo {
+                                        itemsPerPage
+                                        lastPage
+                                        totalCount
+                                        currentPage
+                                        hasNextPage
+                                    }
+                                }
+                            }
+                        `,
+                        {
+                            page: 1,
+                            itemsPerPage: 100,
+                        }
+                    )
+                    .toPromise();
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                const collection = result.data?.profiles?.collection ?? [];
+
+                const options = collection
+                    .filter((item: any) => item && item.id && item.label)
+                    .map((item: any) => ({
+                        label: item.label as string,
+                        value: item.id as string,
+                    }));
+
+                setAvailableProfiles(options);
+            } catch (error) {
+                console.error('Erreur lors du chargement des profils', error);
+            }
+        }
+
+        fetchProfiles();
+    }, []);
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setError(null);
+
+        if (!email || !plainPassword || !confirmPassword || !displayName) {
+            setError('Email, mot de passe et nom complet sont obligatoires.');
+            return;
+        }
+
+        if (plainPassword !== confirmPassword) {
+            setError('Les mots de passe ne correspondent pas.');
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+
+            const clientMutationId = `create-user-${Date.now()}`;
+
+            const result = await graphqlClient
+                .mutation(CREATE_USER_MUTATION, {
+                    input: {
+                        email,
+                        plainPassword,
+                        phone,
+                        displayName,
+                        profile,
+                        clientMutationId,
+                    },
+                })
+                .toPromise();
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            const node = result.data?.createUser?.user;
+
+            if (!node) {
+                throw new Error("La réponse de l'API ne contient pas l'utilisateur créé.");
+            }
+
+            const iri: string = node.id;
+            const parts = iri.split('/');
+            const lastPart = parts[parts.length - 1] || iri;
+            const displayId = lastPart;
+
+            const selectedProfileLabel =
+                availableProfiles.find((option) => option.value === profile)?.label ??
+                '';
+
+            const createdUser: UserDataType = {
+                iri,
+                id: displayId,
+                displayName: node.displayName ?? displayName,
+                email: node.email ?? email,
+                phone: node.phone ?? phone,
+                personType: '',
+                isConfirmed: true,
+                locked: false,
+                deleted: false,
+                createdAt: node.createdAt ?? new Date().toISOString(),
+                profile: selectedProfileLabel,
+            };
+
+            onCreated(createdUser);
+            toast.success('Utilisateur créé avec succès.');
+        } catch (error: any) {
+            console.error("Erreur lors de la création de l'utilisateur", error);
+            const message =
+                error?.message ||
+                "Impossible de créer l'utilisateur. Veuillez vérifier les informations saisies.";
+            setError(message);
+            toast.error(message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="block">
+            <div className="flex items-center justify-between border-b border-gray-200 p-5 md:p-7">
+                <Title
+                    as="h3"
+                    className="font-lexend text-lg font-semibold md:text-xl"
+                >
+                    Ajouter un utilisateur
+                </Title>
+                <ActionIcon
+                    size="sm"
+                    variant="text"
+                    onClick={onCancel}
+                    className="p-0 text-gray-500 hover:!text-gray-900"
+                >
+                    <PiXBold className="h-5 w-5" />
+                </ActionIcon>
+            </div>
+            <form
+                onSubmit={handleSubmit}
+                className="space-y-6 px-5 pb-6 pt-5 md:px-7 md:pb-7 md:pt-6"
+            >
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-1 md:col-span-2">
+                        <Input
+                            type="email"
+                            label="Email"
+                            labelClassName="font-medium text-gray-1000 dark:text-white"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="email@exemple.com"
+                            required
+                        />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                        <Input
+                            label="Nom complet"
+                            labelClassName="font-medium text-gray-1000 dark:text-white"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder="Nom et prénom"
+                            required
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <Password
+                            label="Mot de passe"
+                            labelClassName="font-medium text-gray-1000 dark:text-white"
+                            value={plainPassword}
+                            onChange={(e) => setPlainPassword(e.target.value)}
+                            placeholder="Mot de passe"
+                            required
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <Password
+                            label="Confirmer le mot de passe"
+                            labelClassName="font-medium text-gray-1000 dark:text-white"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Confirmer le mot de passe"
+                            required
+                        />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                        <Input
+                            label="Téléphone"
+                            labelClassName="font-medium text-gray-1000 dark:text-white"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="+33 6 12 34 56 78"
+                        />
+                    </div>
+                    <div className="space-y-1 md:col-span-2">
+                        <Select
+                            label="Profil"
+                            placeholder="Sélectionner un profil"
+                            dropdownClassName="!z-[1] h-auto"
+                            selectClassName="w-full"
+                            options={availableProfiles}
+                            value={profile}
+                            onChange={(value: string) => setProfile(value)}
+                            getOptionValue={(option) => option.value}
+                            displayValue={(selected) =>
+                                availableProfiles.find(
+                                    (option) => option.value === selected
+                                )?.label ?? ''
+                            }
+                            inPortal={false}
+                        />
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {error}
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-1">
+                    <Button variant="outline" type="button" onClick={onCancel}>
+                        Annuler
+                    </Button>
+                    <Button
+                        type="submit"
+                        className="bg-[#D4AF37] hover:bg-[#b8952b]"
+                        isLoading={isSubmitting}
+                        disabled={isSubmitting}
+                    >
+                        Créer
+                    </Button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
 type ChangePasswordPanelProps = {
     isOpen: boolean;
     onClose: () => void;
@@ -584,7 +867,7 @@ function ChangePasswordPanel({ isOpen, onClose, user }: ChangePasswordPanelProps
                     utilisateur.
                 </Text>
                 <div className="space-y-3">
-                    <Input
+                    <Password
                         label="Mot de passe actuel"
                         labelClassName="font-medium text-gray-1000 dark:text-white"
                         value={actualPassword}
@@ -592,7 +875,7 @@ function ChangePasswordPanel({ isOpen, onClose, user }: ChangePasswordPanelProps
                         placeholder="Mot de passe actuel"
                         required
                     />
-                    <Input
+                    <Password
                         label="Nouveau mot de passe"
                         labelClassName="font-medium text-gray-1000 dark:text-white"
                         value={newPassword}
@@ -600,7 +883,7 @@ function ChangePasswordPanel({ isOpen, onClose, user }: ChangePasswordPanelProps
                         placeholder="Nouveau mot de passe"
                         required
                     />
-                    <Input
+                    <Password
                         label="Confirmer le nouveau mot de passe"
                         labelClassName="font-medium text-gray-1000 dark:text-white"
                         value={confirmPassword}
@@ -1081,7 +1364,23 @@ export default function UserListTable() {
                     className="w-full max-w-md"
                 />
                 <div className="flex items-center gap-3">
-                    <Button className="bg-[#D4AF37] hover:bg-[#b8952b]">
+                    <Button
+                        className="bg-[#D4AF37] hover:bg-[#b8952b]"
+                        onClick={() =>
+                            openModal({
+                                view: (
+                                    <CreateUserForm
+                                        onCreated={(user) => {
+                                            setRawUsers((prev) => [...prev, user]);
+                                            closeModal();
+                                        }}
+                                        onCancel={closeModal}
+                                    />
+                                ),
+                                size: 'lg' as ModalSize,
+                            })
+                        }
+                    >
                         Ajouter un utilisateur
                     </Button>
                     <Button
