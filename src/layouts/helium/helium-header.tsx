@@ -1,8 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Badge, ActionIcon } from 'rizzui';
-import cn from '@core/utils/class-names';
 import ProfileMenu from '@/layouts/profile-menu';
 import SettingsButton from '@/layouts/settings-button';
 import HamburgerButton from '@/layouts/hamburger-button';
@@ -43,6 +41,12 @@ export default function Header() {
         >
           <Logo iconOnly={true} />
         </Link>
+
+        <div className="hidden items-center xl:flex">
+          <span className="font-lexend text-sm font-bold uppercase tracking-[0.18em] text-[#D4AF37] md:text-base lg:text-lg 2xl:text-xl">
+            PORTAIL DE GESTION DES AUDIENCES
+          </span>
+        </div>
 
       </div>
       <HeaderMenuRight />
