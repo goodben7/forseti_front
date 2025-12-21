@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Title, Button, Input, ActionIcon, Dropdown } from 'rizzui';
+import { Title, Button, Input, ActionIcon, Dropdown, MultiSelect, Switch, Select } from 'rizzui';
 import Breadcrumb from '@core/ui/breadcrumb';
-import { PiPlusBold, PiMagnifyingGlassBold, PiDotsThreeBold, PiXBold } from 'react-icons/pi';
+import { PiPlusBold, PiMagnifyingGlassBold, PiDotsThreeBold, PiXBold, PiFunnel } from 'react-icons/pi';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useModal } from '@/app/shared/modal-views/use-modal';
+import { FilterDrawerView } from '@core/components/controlled-table/table-filter';
 
 const PROFILES_QUERY = `
   query Profiles($page: Int, $itemsPerPage: Int) {
@@ -90,6 +91,9 @@ type ProfileDetails = {
     label?: string;
     personType?: string;
     permission?: any;
+    active?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
 };
 
 export default function RolesPermissionsContent() {
@@ -113,6 +117,12 @@ export default function RolesPermissionsContent() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Filters State
+    const [searchTerm, setSearchTerm] = useState<string>('');
+    const [personTypeFilter, setPersonTypeFilter] = useState<string>('');
+    const [activeFilter, setActiveFilter] = useState<string>(''); // '' | 'true' | 'false'
+    const [openFilters, setOpenFilters] = useState(false);
+
     const { openModal } = useModal();
 
     useEffect(() => {
@@ -123,8 +133,13 @@ export default function RolesPermissionsContent() {
                 setError(null);
                 setIsLoading(true);
 
+                const variables: any = {
+                    page: 1,
+                    itemsPerPage: 100,
+                };
+
                 const result = await graphqlClient
-                    .query(PROFILES_QUERY, { page: 1, itemsPerPage: 20 })
+                    .query(PROFILES_QUERY, variables)
                     .toPromise();
 
                 if (result.error) {
@@ -137,7 +152,18 @@ export default function RolesPermissionsContent() {
                     return;
                 }
 
-                const nextRoles: RoleCard[] = collection.map((item: ProfileNode, index: number) => {
+                // Apply Filters Client-Side for better reliability
+                const filteredCollection = collection.filter((item: ProfileNode) => {
+                    const matchesSearch = searchTerm
+                        ? item.label?.toLowerCase().includes(searchTerm.toLowerCase())
+                        : true;
+                    const matchesPersonType = personTypeFilter ? item.personType === personTypeFilter : true;
+                    const matchesActive = activeFilter === '' ? true : (activeFilter === 'true' ? item.active === true : item.active === false);
+
+                    return matchesSearch && matchesPersonType && matchesActive;
+                });
+
+                const nextRoles: RoleCard[] = filteredCollection.map((item: ProfileNode, index: number) => {
                     const permissionsValue = (item as any).permission;
 
                     let permissionsCount = 0;
@@ -182,7 +208,7 @@ export default function RolesPermissionsContent() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [searchTerm, personTypeFilter, activeFilter]);
 
     return (
         <div className="@container">
@@ -215,21 +241,114 @@ export default function RolesPermissionsContent() {
                         className="mt-5 w-full text-xs capitalize @lg:w-auto sm:text-sm lg:mt-0"
                     >
                         <PiPlusBold className="me-1.5 h-[17px] w-[17px]" />
-                        Ajouter un rôle
+                        Ajouter un profile
                     </Button>
                 </div>
             </header>
 
             <section className="space-y-6">
-                <div className="flex justify-start">
+                <div className="flex flex-col gap-4 @lg:flex-row @lg:items-center @lg:justify-between">
                     <Input
                         type="search"
                         placeholder="Rechercher un rôle..."
                         className="w-full @lg:max-w-sm"
                         inputClassName="shadow-sm"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onClear={() => setSearchTerm('')}
+                        clearable
                         prefix={<PiMagnifyingGlassBold className="h-auto w-4" />}
                     />
+
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="outline"
+                            className="h-9 pe-3 ps-2.5"
+                            onClick={() => setOpenFilters(true)}
+                        >
+                            <PiFunnel className="me-1.5 h-[18px] w-[18px]" strokeWidth={1.7} />
+                            Filtres
+                        </Button>
+                    </div>
                 </div>
+
+                <FilterDrawerView
+                    drawerTitle="Filtres du tableau"
+                    isOpen={openFilters}
+                    setOpenDrawer={setOpenFilters}
+                    buttonTitle="Afficher les résultats"
+                >
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <Title as="h6" className="text-sm font-semibold">
+                                Profil
+                            </Title>
+                            <Select
+                                dropdownClassName="!z-[1] h-auto"
+                                selectClassName="w-full"
+                                placeholder="Tous les types"
+                                options={[
+                                    { label: 'Tous les types', value: '' },
+                                    { label: 'Administrateur', value: 'ADM' },
+                                    { label: 'Super Administrateur', value: 'SPADM' },
+                                ]}
+                                value={personTypeFilter}
+                                onChange={(value: string) => setPersonTypeFilter(value)}
+                                getOptionValue={(option) => option.value}
+                                displayValue={(selected) =>
+                                    [
+                                        { label: 'Tous les types', value: '' },
+                                        { label: 'Administrateur', value: 'ADM' },
+                                        { label: 'Super Administrateur', value: 'SPADM' },
+                                    ].find(opt => opt.value === selected)?.label ?? 'Tous les types'
+                                }
+                                inPortal={false}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Title as="h6" className="text-sm font-semibold">
+                                Actif
+                            </Title>
+                            <Select
+                                dropdownClassName="!z-[1] h-auto"
+                                selectClassName="w-full"
+                                placeholder="Tous les statuts"
+                                options={[
+                                    { label: 'Tous les statuts', value: '' },
+                                    { label: 'Actif', value: 'true' },
+                                    { label: 'Inactif', value: 'false' },
+                                ]}
+                                value={activeFilter}
+                                onChange={(value: string) => setActiveFilter(value)}
+                                getOptionValue={(option) => option.value}
+                                displayValue={(selected) =>
+                                    [
+                                        { label: 'Tous les statuts', value: '' },
+                                        { label: 'Actif', value: 'true' },
+                                        { label: 'Inactif', value: 'false' },
+                                    ].find(opt => opt.value === selected)?.label ?? 'Tous les statuts'
+                                }
+                                inPortal={false}
+                            />
+                        </div>
+
+                        {(personTypeFilter || activeFilter) && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    setPersonTypeFilter('');
+                                    setActiveFilter('');
+                                }}
+                                className="w-full"
+                            >
+                                <PiXBold className="me-1.5 h-3.5 w-3.5" />
+                                Réinitialiser les filtres
+                            </Button>
+                        )}
+                    </div>
+                </FilterDrawerView>
 
                 {error && <p className="text-sm text-red-500">{error}</p>}
 
@@ -299,10 +418,26 @@ export default function RolesPermissionsContent() {
                                             </ActionIcon>
                                         </Dropdown.Trigger>
                                         <Dropdown.Menu className="!z-10">
-                                            <Dropdown.Item className="text-xs sm:text-sm">
+                                            <Dropdown.Item
+                                                className="text-xs sm:text-sm"
+                                                onClick={() =>
+                                                    openModal({
+                                                        view: <EditProfileInfo profileId={role.id} />,
+                                                        customSize: '500px',
+                                                    })
+                                                }
+                                            >
                                                 Modifier
                                             </Dropdown.Item>
-                                            <Dropdown.Item className="text-xs sm:text-sm">
+                                            <Dropdown.Item
+                                                className="text-xs sm:text-sm"
+                                                onClick={() =>
+                                                    openModal({
+                                                        view: <ViewRoleDetails profileId={role.id} />,
+                                                        customSize: '600px',
+                                                    })
+                                                }
+                                            >
                                                 Voir détails
                                             </Dropdown.Item>
                                         </Dropdown.Menu>
@@ -335,12 +470,184 @@ export default function RolesPermissionsContent() {
     );
 }
 
+const UPDATE_PROFILE_MUTATION = `
+  mutation UpdateProfile($input: updateProfileInput!) {
+    updateProfile(input: $input) {
+      profile {
+        id
+        _id
+        label
+        active
+        permission
+      }
+      clientMutationId
+    }
+  }
+`;
+
+function EditProfileInfo({ profileId }: { profileId: string }) {
+    const { closeModal } = useModal();
+    const [profile, setProfile] = useState<ProfileDetails | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // Form State
+    const [label, setLabel] = useState("");
+    const [active, setActive] = useState(false);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function fetchProfile() {
+            try {
+                setError(null);
+                setIsLoading(true);
+
+                const result = await graphqlClient
+                    .query(PROFILE_BY_ID_QUERY, { id: profileId })
+                    .toPromise();
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                const profileNode = result.data?.profile;
+
+                if (!profileNode || !isMounted) {
+                    return;
+                }
+
+                setProfile({
+                    id: profileNode.id,
+                    label: profileNode.label,
+                    personType: profileNode.personType,
+                    permission: profileNode.permission,
+                    active: profileNode.active
+                } as any);
+
+                setLabel(profileNode.label || "");
+                setActive(profileNode.active || false);
+
+            } catch (e) {
+                console.error('Error while fetching profile by id', e);
+                if (isMounted) {
+                    setError('Impossible de charger les informations du Profile');
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        fetchProfile();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [profileId]);
+
+    const handleSave = async () => {
+        if (!profile) return;
+
+        try {
+            setIsSaving(true);
+            setError(null);
+
+            const input = {
+                id: profile.id,
+                label: label,
+                permission: (profile as any).permission, // Preserve existing permissions
+                active: active,
+                clientMutationId: 'profile-update-' + Date.now(),
+            };
+
+            const result = await graphqlClient.mutation(UPDATE_PROFILE_MUTATION, { input }).toPromise();
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            closeModal();
+            window.location.reload();
+        } catch (e) {
+            console.error('Error updating profile info', e);
+            setError('Erreur lors de la mise à jour du Profile.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 gap-6 p-6 @container">
+            <div className="col-span-full flex items-center justify-between">
+                <Title as="h4" className="font-semibold">
+                    Modifier le Profile
+                </Title>
+                <ActionIcon size="sm" variant="text" onClick={closeModal}>
+                    <PiXBold className="h-auto w-5" />
+                </ActionIcon>
+            </div>
+
+            <div className="grid gap-4 divide-y divide-y-reverse divide-gray-200">
+                {isLoading && (
+                    <div className="py-4 text-sm text-gray-500">
+                        Chargement...
+                    </div>
+                )}
+
+                {!isLoading && error && (
+                    <div className="py-4 text-sm text-red-500">{error}</div>
+                )}
+
+                {!isLoading && !error && (
+                    <div className="py-4 space-y-4">
+                        <Input
+                            label="Nom du Profile"
+                            value={label}
+                            onChange={(e) => setLabel(e.target.value)}
+                            placeholder="Ex: Manager"
+                        />
+
+                        <Switch
+                            label="Actif"
+                            checked={active}
+                            onChange={() => setActive(!active)}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <div className="col-span-full flex items-center justify-end gap-4">
+                <Button
+                    variant="outline"
+                    onClick={closeModal}
+                    className="w-full @xl:w-auto"
+                    disabled={isSaving}
+                >
+                    Annuler
+                </Button>
+                <Button
+                    onClick={handleSave}
+                    className="w-full @xl:w-auto"
+                    isLoading={isSaving}
+                >
+                    Enregistrer
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 function EditRole({ profileId }: { profileId: string }) {
     const { closeModal } = useModal();
     const [profile, setProfile] = useState<ProfileDetails | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [permissionLabels, setPermissionLabels] = useState<{ [key: string]: string }>({});
+    const [permissionOptions, setPermissionOptions] = useState<{ label: string; value: string }[]>([]);
+    const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
     useEffect(() => {
         let isMounted = true;
@@ -378,21 +685,27 @@ function EditRole({ profileId }: { profileId: string }) {
                     label: profileNode.label,
                     personType: profileNode.personType,
                     permission: profileNode.permission,
-                });
+                    active: profileNode.active, // Store active state
+                } as any);
+
+                let initialPermissions: string[] = [];
+                if (Array.isArray(profileNode.permission)) {
+                    initialPermissions = profileNode.permission.map((p: any) => String(p));
+                } else if (profileNode.permission != null) {
+                    initialPermissions = [String(profileNode.permission)];
+                }
+                setSelectedPermissions(initialPermissions);
 
                 const permissionsCollection: any[] =
                     permissionsResult.data?.permissions?.collection ?? [];
 
-                const labels: { [key: string]: string } = {};
-
-                permissionsCollection.forEach((item) => {
-                    if (item?.role) {
-                        labels[String(item.role)] = item.label ?? String(item.role);
-                    }
-                });
+                const options = permissionsCollection.map((item) => ({
+                    label: item.label || item.role || 'Inconnu',
+                    value: item.role,
+                }));
 
                 if (isMounted) {
-                    setPermissionLabels(labels);
+                    setPermissionOptions(options);
                 }
             } catch (e) {
                 console.error('Error while fetching profile by id', e);
@@ -413,13 +726,37 @@ function EditRole({ profileId }: { profileId: string }) {
         };
     }, [profileId]);
 
-    let permissions: string[] = [];
+    const handleSave = async () => {
+        if (!profile) return;
 
-    if (Array.isArray(profile?.permission)) {
-        permissions = (profile?.permission as any[]).map((p) => String(p));
-    } else if (profile?.permission != null) {
-        permissions = [String(profile.permission)];
-    }
+        try {
+            setIsSaving(true);
+            setError(null);
+
+            const input = {
+                id: profile.id,
+                label: profile.label,
+                permission: selectedPermissions,
+                active: (profile as any).active,
+                clientMutationId: 'role-update-' + Date.now(),
+            };
+
+            const result = await graphqlClient.mutation(UPDATE_PROFILE_MUTATION, { input }).toPromise();
+
+            if (result.error) {
+                throw result.error;
+            }
+
+            closeModal();
+            // You might want to refresh the parent list here, but currently we just close
+            window.location.reload(); // Simple refresh to show updates
+        } catch (e) {
+            console.error('Error updating profile', e);
+            setError('Erreur lors de la mise à jour des permissions.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className="grid grid-cols-1 gap-6 p-6 @container">
@@ -445,24 +782,14 @@ function EditRole({ profileId }: { profileId: string }) {
 
                 {!isLoading && !error && (
                     <div className="py-4 space-y-2">
-                        {permissions.length === 0 ? (
-                            <p className="text-sm text-gray-500">
-                                Aucune permission définie pour ce profil.
-                            </p>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {permissions.map((permission) => (
-                                    <span
-                                        key={permission}
-                                        className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-                                    >
-                                        {permissionLabels[permission] ??
-                                            permissionLabelMap[permission] ??
-                                            permission}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                        <MultiSelect
+                            label="Permissions"
+                            options={permissionOptions}
+                            value={selectedPermissions}
+                            onChange={setSelectedPermissions as any}
+                            placeholder="Sélectionner des permissions..."
+                            className="w-full"
+                        />
                     </div>
                 )}
             </div>
@@ -472,10 +799,169 @@ function EditRole({ profileId }: { profileId: string }) {
                     variant="outline"
                     onClick={closeModal}
                     className="w-full @xl:w-auto"
+                    disabled={isSaving}
+                >
+                    Annuler
+                </Button>
+                <Button
+                    onClick={handleSave}
+                    className="w-full @xl:w-auto"
+                    isLoading={isSaving}
+                >
+                    Enregistrer
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function ViewRoleDetails({ profileId }: { profileId: string }) {
+    const { closeModal } = useModal();
+    const [profile, setProfile] = useState<ProfileDetails | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function fetchProfile() {
+            try {
+                setError(null);
+                setIsLoading(true);
+
+                const result = await graphqlClient
+                    .query(PROFILE_BY_ID_QUERY, { id: profileId })
+                    .toPromise();
+
+                if (result.error) {
+                    throw result.error;
+                }
+
+                const profileNode = result.data?.profile;
+
+                if (!profileNode || !isMounted) {
+                    return;
+                }
+
+                setProfile(profileNode);
+
+            } catch (e) {
+                console.error('Error while fetching profile details', e);
+                if (isMounted) {
+                    setError('Impossible de charger les détails du profile');
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        fetchProfile();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [profileId]);
+
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return '-';
+        return new Date(dateStr).toLocaleString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    };
+
+    const formatId = (id?: string) => {
+        if (!id) return '-';
+        return id.replace('/api/profiles/', '');
+    };
+
+    const formatPersonType = (type?: string) => {
+        if (!type) return '-';
+        if (type === 'ADM') return 'Administrateur';
+        if (type === 'SPADM') return 'Super Administrateur';
+        return type;
+    };
+
+    return (
+        <div className="p-6 @container">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <Title as="h3" className="text-xl font-bold text-gray-900">
+                    Détails du Profile
+                </Title>
+                <ActionIcon size="sm" variant="text" onClick={closeModal} className="text-gray-400 hover:text-gray-900">
+                    <PiXBold className="h-5 w-5" />
+                </ActionIcon>
+            </div>
+
+            <div className="mt-6">
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-10 space-y-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37]"></div>
+                        <p className="text-sm text-gray-500">Chargement des données...</p>
+                    </div>
+                )}
+
+                {!isLoading && error && (
+                    <div className="p-4 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100">
+                        {error}
+                    </div>
+                )}
+
+                {!isLoading && !error && profile && (
+                    <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-8">
+                        <DetailItem label="LABEL" value={profile.label} />
+                        <DetailItem label="TYPE" value={formatPersonType(profile.personType)} />
+                        <DetailItem
+                            label="ACTIF"
+                            value={
+                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${profile.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                    <span className={`h-1.5 w-1.5 rounded-full ${profile.active ? 'bg-green-600' : 'bg-red-600'}`}></span>
+                                    {profile.active ? 'Oui' : 'Non'}
+                                </span>
+                            }
+                        />
+                        <DetailItem label="ID" value={formatId(profile.id)} className="sm:col-span-2" isMono />
+                        <DetailItem label="CRÉÉ LE" value={formatDate(profile.createdAt)} />
+                        <DetailItem label="MIS À JOUR LE" value={formatDate(profile.updatedAt)} />
+                    </div>
+                )}
+            </div>
+
+            <div className="mt-8 flex justify-end">
+                <Button
+                    onClick={closeModal}
+                    className="bg-[#D4AF37] hover:bg-[#B8962E] text-white px-8 h-11"
                 >
                     Fermer
                 </Button>
             </div>
+        </div>
+    );
+}
+
+function DetailItem({
+    label,
+    value,
+    className = "",
+    isMono = false
+}: {
+    label: string;
+    value: React.ReactNode;
+    className?: string;
+    isMono?: boolean;
+}) {
+    return (
+        <div className={className}>
+            <dt className="text-[10px] font-bold tracking-wider text-gray-500 uppercase">{label}</dt>
+            <dd className={`mt-1 text-sm font-medium ${isMono ? 'font-mono text-gray-600' : 'text-gray-900'}`}>
+                {value || '-'}
+            </dd>
         </div>
     );
 }

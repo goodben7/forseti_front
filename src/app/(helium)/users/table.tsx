@@ -1182,27 +1182,27 @@ export default function UserListTable() {
 
                                         const nextUser: UserDataType = node
                                             ? (() => {
-                                                  const nextIri: string = node.id;
-                                                  const nextParts = nextIri.split('/');
-                                                  const nextLast =
-                                                      nextParts[nextParts.length - 1] ||
-                                                      nextIri;
-                                                  const nextDisplayId = nextLast;
-                                                  return {
-                                                      iri: nextIri,
-                                                      id: nextDisplayId,
-                                                      displayName:
-                                                          node.displayName ?? '',
-                                                      email: node.email ?? '',
-                                                      phone: node.phone ?? updatedUser.phone,
-                                                      personType: updatedUser.personType,
-                                                      isConfirmed: updatedUser.isConfirmed,
-                                                      locked: updatedUser.locked,
-                                                      deleted: updatedUser.deleted,
-                                                      createdAt: updatedUser.createdAt,
-                                                      profile: updatedUser.profile,
-                                                  };
-                                              })()
+                                                const nextIri: string = node.id;
+                                                const nextParts = nextIri.split('/');
+                                                const nextLast =
+                                                    nextParts[nextParts.length - 1] ||
+                                                    nextIri;
+                                                const nextDisplayId = nextLast;
+                                                return {
+                                                    iri: nextIri,
+                                                    id: nextDisplayId,
+                                                    displayName:
+                                                        node.displayName ?? '',
+                                                    email: node.email ?? '',
+                                                    phone: node.phone ?? updatedUser.phone,
+                                                    personType: updatedUser.personType,
+                                                    isConfirmed: updatedUser.isConfirmed,
+                                                    locked: updatedUser.locked,
+                                                    deleted: updatedUser.deleted,
+                                                    createdAt: updatedUser.createdAt,
+                                                    profile: updatedUser.profile,
+                                                };
+                                            })()
                                             : updatedUser;
 
                                         setRawUsers((prev) =>
@@ -1230,7 +1230,7 @@ export default function UserListTable() {
                             />
                         ),
                         size: 'lg' as ModalSize,
-                        });
+                    });
                 },
                 handleDeleteUser: async (user: UserDataType) => {
                     try {
@@ -1405,6 +1405,7 @@ export default function UserListTable() {
                 drawerTitle="Filtres du tableau"
                 isOpen={openFilters}
                 setOpenDrawer={setOpenFilters}
+                buttonTitle="Afficher les résultats"
             >
                 <div className="space-y-6">
                     <div className="space-y-2">
