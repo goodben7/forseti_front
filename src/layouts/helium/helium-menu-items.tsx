@@ -241,7 +241,7 @@ export const menuItems: MenuItem[] = [
       },
       {
         name: 'Rôles & permissions',
-        href: '#',
+        href: routes.rolesPermissions,
       },
       {
         name: 'Participants aux audiences',
